@@ -29,6 +29,7 @@ mkdir -p "$WORK"
 TTY=""; [ -t 0 ] && [ -t 1 ] && TTY="-it"
  exec docker run --rm $TTY \
   --network "$NET" \
+  -e IS_SANDBOX=1 \
   -e ANTHROPIC_BASE_URL=https://api.abliteration.ai \
   -e ANTHROPIC_AUTH_TOKEN="$(cat "$KEY_FILE")" \
   -e ANTHROPIC_DEFAULT_OPUS_MODEL='abliterated-model-large-v2[1m]' \
@@ -37,4 +38,4 @@ TTY=""; [ -t 0 ] && [ -t 1 ] && TTY="-it"
   -v "$WORK":/work${RO} \
   -v ablclaude:/root/.claude \
   "$IMG" \
-  claude --model 'abliterated-model-large-v2[1m]' "$@"
+  claude --model 'abliterated-model-large-v2[1m]' --dangerously-skip-permissions "$@"

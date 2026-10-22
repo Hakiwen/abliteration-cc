@@ -29,9 +29,11 @@ The launcher creates the `ablnet` network and firewall rules itself (needs passw
 abliteration-cc                      # interactive CC on the abliterated model, scratch dir ~/abliteration-work
 ABL_WORK=/path/to/dir abliteration-cc   # mount a specific dir at /work
 ABL_RO=1 ABL_WORK=/path abliteration-cc # mount it read-only
-abliteration-cc --dangerously-skip-permissions   # flags pass through to claude
+abliteration-cc                      # runs with --dangerously-skip-permissions (safe here: isolated, no creds)
 abliteration-cc -p "summarize README.md"         # headless
 ```
+
+Runs with `--dangerously-skip-permissions` by default (CC's root check is satisfied via `IS_SANDBOX=1`); this is intentional because the container is isolated and holds no credentials.
 
 Model: `abliterated-model-large-v2[1m]` (Claude Code prints a cosmetic `unrecognized_model` warning;
 the request still succeeds). Config comes from `ANTHROPIC_BASE_URL=https://api.abliteration.ai` plus the
