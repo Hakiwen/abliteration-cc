@@ -1,0 +1,4 @@
+# never commit secrets or local state
+*.env
+*.key
+*.pem

@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Launch Claude Code against the abliteration.ai (refusal-ablated) model in an
+# ISOLATED throwaway container. Network 'ablnet' can reach ONLY the public
+# internet: no tailnet, no cloud metadata, no prod, no internal 10.x/172.16/192.168.
+# No host secrets are mounted; only the abliteration API key is injected.
+# Your normal Claude Code / subscription on the host is untouched.
+set -euo pipefail
+KEY_FILE="$HOME/.secrets/abliteration_api_key"
+IMG=abliteration-cc:latest
+NET=ablnet
+SUBNET=172.29.0.0/24
+WORK="${ABL_WORK:-$HOME/abliteration-work}"   # dedicated scratch dir; override with ABL_WORK=/path
+[ -r "$KEY_FILE" ] || { echo "abliteration-cc: missing $KEY_FILE" >&2; exit 1; }
+
+# --- ensure isolated network exists ---
+docker network inspect "$NET" >/dev/null 2>&1 || docker network create --subnet "$SUBNET" "$NET" >/dev/null
+
+# --- (re)assert firewall isolation (idempotent; survives host reboots) ---
+fw(){ sudo -n iptables -C "$@" 2>/dev/null || sudo -n iptables -I "$@"; }
+for d in 10.0.0.0/8 100.64.0.0/10 169.254.0.0/16 172.16.0.0/12 192.168.0.0/16; do
+  fw DOCKER-USER -s "$SUBNET" -d "$d" -j DROP
+done
+fw DOCKER-USER -s "$SUBNET" -d "$SUBNET" -j RETURN
+for d in 10.0.0.0/8 100.64.0.0/10; do fw INPUT -s "$SUBNET" -d "$d" -j DROP; done
+fw INPUT -s "$SUBNET" -d "$SUBNET" -j RETURN
+
+RO=""; [ -n "${ABL_RO:-}" ] && RO=":ro"
+mkdir -p "$WORK"
+TTY=""; [ -t 0 ] && [ -t 1 ] && TTY="-it"
+ exec docker run --rm $TTY \
+  --network "$NET" \
+  -e ANTHROPIC_BASE_URL=https://api.abliteration.ai \
+  -e ANTHROPIC_AUTH_TOKEN="$(cat "$KEY_FILE")" \
+  -e ANTHROPIC_DEFAULT_OPUS_MODEL='abliterated-model-large-v2[1m]' \
+  -e ANTHROPIC_DEFAULT_SONNET_MODEL='abliterated-model-large-v2[1m]' \
+  -e ANTHROPIC_DEFAULT_HAIKU_MODEL='abliterated-model-large-v2[1m]' \
+  -v "$WORK":/work${RO} \
+  -v ablclaude:/root/.claude \
+  "$IMG" \
+  claude --model 'abliterated-model-large-v2[1m]' "$@"
